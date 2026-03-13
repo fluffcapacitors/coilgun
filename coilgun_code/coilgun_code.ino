@@ -3,6 +3,7 @@
 // TODO:
 // More opto checks prior to firing (make sure no unexpected optos are triggered)
 // Maximum overall shot time safety check? (might be redundant because coil on-time will get triggered if shot somehow doesn't finish)
+// Change all IO to digitalReadWriteFast
 
 #define NUM_OPTOS_COILS 3
 
@@ -22,6 +23,12 @@
 #define SAFETY_TIMER_INTERVAL_US 100
 #define MAX_COIL_ON_TIME_US 10000UL
 
+// Temporary thwacker support, will be done better/correctly later
+#define THWACKER_PIN 14
+#define THWACKER_ON  digitalWriteFast(THWACKER_PIN, HIGH)
+#define THWACKER_OFF digitalWriteFast(THWACKER_PIN, LOW )
+#define THWACKER_ENABLE_TIME_MS 200
+
 
 typedef enum {
   RESET_COILS,
@@ -38,20 +45,23 @@ static const int coil_pins[NUM_OPTOS_COILS] = {3, 4, 5};
 
 static IntervalTimer safety_timer;
 static uint8_t fire_btn_state = 0;
+static uint8_t enable_coilgun_fire = 0;
 
 
 static void tick_coilgun_fire(void);
 static void tick_fire_btn_read(void);
 static int  fire_btn_held(void);
+static int  coilgun_can_fire(void);
 static int  opto_triggered(uint8_t);
 static void turn_coil_on(uint8_t);
 static void turn_coils_off(void);
-static int  coil_is_on(void);
+static int  coil_is_on(uint8_t);
 static void error(const char *);
 static void safety_callback(void);
 
 
 void setup() {
+  pinMode(THWACKER_PIN, OUTPUT);
   for(uint8_t i = 0; i < NUM_OPTOS_COILS; i++) {
     pinMode(opto_pins[i], INPUT);
     pinMode(coil_pins[i], OUTPUT);
@@ -68,14 +78,45 @@ void setup() {
 
 void loop() {
   tick_fire_btn_read();
+  tick_thwacker();
   tick_coilgun_fire();
+}
+
+static void tick_thwacker(void) {
+  static uint8_t prev_fire_btn_state = 0;
+  static uint32_t thwacker_timer = 0;
+
+  if(SAFETY_ENABLED == 0) {
+    THWACKER_OFF;
+    enable_coilgun_fire = 0;
+    // Without this, you could hold fire, then turn on safety, and it would fire immediately
+    prev_fire_btn_state = fire_btn_held();
+    return;
+  }
+
+  // Catch button press rising edge only
+  if(prev_fire_btn_state == 0 && fire_btn_held()) {
+    thwacker_timer = millis();
+    THWACKER_ON;
+    enable_coilgun_fire = 1;
+  }
+
+  // Normally, once the dowel reaches the first opto, turn_coils_off() is called and the thwacker will turn off
+  // Similarly, once the dowel passes the last opto, enable_coilgun_fire gets set to 0
+  // This is just a backup for both
+  if(millis() - thwacker_timer > THWACKER_ENABLE_TIME_MS) {
+    THWACKER_OFF;
+    enable_coilgun_fire = 0;
+  }
+
+  prev_fire_btn_state = fire_btn_held();
 }
 
 static void tick_coilgun_fire(void) {
   static CoilStateEnum state = RESET_COILS;
   static uint8_t active_coil = 0;
 
-  if(fire_btn_held() == 0 || SAFETY_ENABLED == 0) {
+  if(coilgun_can_fire() == 0 || SAFETY_ENABLED == 0) {
     state = RESET_COILS;
   }
 
@@ -111,9 +152,12 @@ static void tick_coilgun_fire(void) {
   else if(state == WAIT_FOR_OPTO_UNTRIGGER) {
     if(!opto_triggered(active_coil)) {
       active_coil++;
+      // Finished the shot
       if(active_coil >= NUM_OPTOS_COILS) {
+        enable_coilgun_fire = 0;
         state = RESET_COILS;
       }
+      // More coils to fire
       else {
         state = FIRE_NEXT_COIL;
       }
@@ -140,6 +184,10 @@ static int fire_btn_held(void) {
   return fire_btn_state;
 }
 
+static int coilgun_can_fire(void) {
+  return enable_coilgun_fire;
+}
+
 static int opto_triggered(uint8_t opto) {
   if(opto >= NUM_OPTOS_COILS) { error("Opto out of range"); }
 
@@ -156,6 +204,7 @@ static void turn_coils_off(void) {
   for(uint8_t i = 0; i < NUM_OPTOS_COILS; i++) {
     digitalWriteFast(coil_pins[i], LOW);
   }
+  THWACKER_OFF;
 }
 
 static int coil_is_on(uint8_t coil) {
