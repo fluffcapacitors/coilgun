@@ -1,6 +1,13 @@
 
 // Teensy 3.2, 72MHz, USB Serial
 
+// TODO:
+// Make it an error for a shot not to complete, if the thwacker was used
+// - When firing enabled, last opto must be triggered before shot timeout
+// - Exception is if "disable thwacker" is enabled
+// - What to do if "ignore loaded" is enabled and a blank shot is fired? Error I guess
+// Why getting random "multiple optos triggered" errors?
+
 #include "coilgun.h"
 #include "loader.h"
 #include "switches.h"
@@ -42,7 +49,7 @@ typedef enum {
 static void s_tick_firing(void) {
   static FiringStateEnum state = WaitForButtonPress;
   static int num_shots = 0;
-  static uint32_t wait_for_readiness_timer = 0;
+  static uint32_t multi_shot_timeout_timer = 0;
 
   if(safety_is_on()) {
     fire_button_pressed(); // Call this to make sure button-press events are cleared
@@ -52,7 +59,7 @@ static void s_tick_firing(void) {
   }
 
   // If we're waiting too long for the coilgun or loader to be ready for the next shot, reset the state machine
-  if(millis() - wait_for_readiness_timer >= MULTI_SHOT_TIMEOUT_MS) {
+  if(millis() - multi_shot_timeout_timer >= MULTI_SHOT_TIMEOUT_MS) {
     state = WaitForButtonPress;
   }
 
@@ -60,7 +67,7 @@ static void s_tick_firing(void) {
     if(fire_button_pressed() && s_ready_to_fire()) {
       num_shots = 1;
       if(switch_is_active(ThreeShotSwitch)) { num_shots = 3; }
-      wait_for_readiness_timer = millis();
+      multi_shot_timeout_timer = millis();
 
       state = WaitForReadiness;
     }
@@ -74,6 +81,7 @@ static void s_tick_firing(void) {
 
   else if(state == FireCoilGun) {
     s_fire_coilgun();
+    multi_shot_timeout_timer = millis(); // Reset on each shot
 
     num_shots--;
     if(num_shots <= 0) {

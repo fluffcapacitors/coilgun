@@ -38,7 +38,7 @@ static void s_turn_coil_on(uint8_t);
 
 void init_coilgun(void) {
   for(int i = 0; i < NUM_OPTOS_COILS; i++) {
-    pinMode(opto_pins[i], INPUT); // Do not set pull resistor, need these pains to be 5V-tolerant
+    pinMode(opto_pins[i], INPUT); // Do not set pull resistor, need these pins to be 5V-tolerant
     pinMode(coil_pins[i], OUTPUT);
   }
   turn_coils_off();

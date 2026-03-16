@@ -15,13 +15,13 @@
 
 #define AREF_MV 3300
 #define ADC_MAX_VAL 1023
-#define ID_MV_TOLERANCE 100
+#define ID_MV_TOLERANCE 200
 
-#define NONE_LOADER_ID_MV  AREF_MV
+#define NONE_LOADER_ID_MV  3200
 #define MAG_LOADER_ID_MV   595
 #define CHAIN_LOADER_ID_MV 1336
 
-#define MAG_MIN_THWACKER_OFF_TIME_MS 500 // Essentially, minimum time between shots for magazine loader
+#define MAG_MIN_THWACKER_OFF_TIME_MS 250 // Essentially, minimum time between shots for magazine loader
 
 
 static LoaderTypeEnum loader = NoneLoader;
@@ -46,7 +46,8 @@ void init_loader(void) {
   }
 
   else if(loader == MagLoader) {
-    pinMode(LOADER_IO_0_PIN, INPUT_PULLDOWN);
+    pinMode(LOADER_IO_0_PIN, INPUT_PULLUP); // Digital output of IR sensor (active low)
+    // pinMode(LOADER_IO_1_PIN, INPUT); // Analog output of IR sensor
     // IO 1 currently unused
   }
 
@@ -77,11 +78,11 @@ int loader_is_ready(void) {
   else if(loader == MagLoader) {
     // Once the thwacker turns off, it takes time for it to retract, and for the next dowel to drop into place
     // We're definitely not ready unless that minimum time has passed
-    if(millis() - thwacker_off_time() < MAG_MIN_THWACKER_OFF_TIME_MS) { return 0; }
+    if(thwacker_off_time() < MAG_MIN_THWACKER_OFF_TIME_MS) { return 0; }
     // Otherwise we check the IR sensor, unless the override switch is on
     if(switch_is_active(IgnoreLoadedSwitch)) { return 1; }
-    // IR proximity sensor, outputs high when something detected
-    if(digitalReadFast(LOADER_IO_0_PIN) == HIGH) { return 1; }
+    // IR proximity sensor, outputs low when something detected
+    if(digitalReadFast(LOADER_IO_0_PIN) == LOW) { return 1; }
 
     return 0;
   }

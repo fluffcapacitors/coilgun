@@ -24,7 +24,7 @@ void init_thwacker(void) {
 
 void tick_thwacker(void) {
   // Make sure thwacker always turns off after some time
-  if(safety_is_on() || (millis() - thwacker_timeout_timer >= THWACKER_TIMEOUT_MS)) {
+  if(safety_is_on() || (THWACKER_IS_ON && millis() - thwacker_timeout_timer >= THWACKER_TIMEOUT_MS)) {
     turn_thwacker_off();
   }
 }

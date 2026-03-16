@@ -7,7 +7,7 @@
 
 
 #define SAFETY_TIMER_INTERVAL_US 100
-#define MAX_COIL_ON_TIME_US      (10  * 1000) // 10ms
+#define MAX_COIL_ON_TIME_US      (20  * 1000) // 20ms
 #define MAX_THWACKER_ON_TIME_US  (150 * 1000) // 150ms, this should be longer than THWACKER_TIMEOUT_MS (thwacker.cpp) to avoid erroring if we fire with no projectile loaded
 
 #define GRN_LED_ON  digitalWriteFast(GRN_LED_PIN, HIGH)
