@@ -1,13 +1,14 @@
 
 #include "error.h"
+#include "coilgun.h"
 #include "loader.h"
 #include "switches.h"
 #include "pins.h"
 #include "thwacker.h"
 
 
-// ID resistor pullup should be 10k. If 48V shorted to it, it would only inject 5mA into the 3.3V line (no problem)
-// Voltages with pulldown:
+// ID resistor pullup should be 10k. If 48V shorted to it, it would only inject 5mA into the 3.3V line (should be fine)
+// Voltages with pulldown (roughly equally-spaced voltages, for up to 4 different loaders (as well as no loader)):
 // 2.2k = 595mV
 // 6.8k = 1336mV
 // 15k  = 1980mV
@@ -21,7 +22,16 @@
 #define MAG_LOADER_ID_MV   595
 #define CHAIN_LOADER_ID_MV 1336
 
-#define MAG_MIN_THWACKER_OFF_TIME_MS 250 // Essentially, minimum time between shots for magazine loader
+#define MAG_MIN_THWACKER_OFF_TIME_MS 250 // Enforced minimum time between shots for the magazine loader (empirically derived)
+#define MAG_LOADED_PIN LOADER_IO_0_PIN // IR proximity sensor digital output
+#define MAG_LOADED_LEVEL LOW // Outputs low when something is detected
+
+
+typedef enum {
+  NoneLoader,
+  MagLoader,
+  ChainLoader
+} LoaderTypeEnum;
 
 
 static LoaderTypeEnum loader = NoneLoader;
@@ -46,9 +56,8 @@ void init_loader(void) {
   }
 
   else if(loader == MagLoader) {
-    pinMode(LOADER_IO_0_PIN, INPUT_PULLUP); // Digital output of IR sensor (active low)
-    // pinMode(LOADER_IO_1_PIN, INPUT); // Analog output of IR sensor
-    // IO 1 currently unused
+    pinMode(MAG_LOADED_PIN, INPUT_PULLUP); // Digital output of IR sensor (active low)
+    // pinMode(LOADER_IO_1_PIN, INPUT); // Analog output of IR sensor, currently unused
   }
 
   else if(loader == ChainLoader) {
@@ -58,11 +67,15 @@ void init_loader(void) {
 
 void tick_loader(void) {
   if(loader == NoneLoader) {
-
+    // Nothing to do
   }
 
   else if(loader == MagLoader) {
-    
+    // The thwacker is turned on in fire_loader(), and turned off here once the projectile makes it to the first coilgun opto
+    if(first_opto_was_triggered()) {
+      turn_thwacker_off();
+    }
+    tick_thwacker();
   }
 
   else if(loader == ChainLoader) {
@@ -72,7 +85,7 @@ void tick_loader(void) {
 
 int loader_is_ready(void) {
   if(loader == NoneLoader) {
-    return 1; // Always loaded (no sensing circuitry)
+    return 1; // Always ready (no sensing circuitry)
   }
 
   else if(loader == MagLoader) {
@@ -82,7 +95,7 @@ int loader_is_ready(void) {
     // Otherwise we check the IR sensor, unless the override switch is on
     if(switch_is_active(IgnoreLoadedSwitch)) { return 1; }
     // IR proximity sensor, outputs low when something detected
-    if(digitalReadFast(LOADER_IO_0_PIN) == LOW) { return 1; }
+    if(digitalReadFast(MAG_LOADED_PIN) == MAG_LOADED_LEVEL) { return 1; }
 
     return 0;
   }
@@ -98,20 +111,22 @@ void fire_loader(void) {
   if(safety_is_on()) { return; }
 
   if(loader == NoneLoader) {
-
+    allow_coilgun_firing(ManualLoading);
   }
 
   else if(loader == MagLoader) {
-    fire_thwacker();
+    LoadingTypeEnum loading_type = AutoLoading;
+    if(switch_is_active(NoThwackerSwitch)) { loading_type = ManualLoading; }
+
+    allow_coilgun_firing(loading_type);
+    if(loading_type == AutoLoading) {
+      fire_thwacker();
+    }
   }
 
   else if(loader == ChainLoader) {
 
   }
-}
-
-LoaderTypeEnum current_loader(void) {
-  return loader;
 }
 
 

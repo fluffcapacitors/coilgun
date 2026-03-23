@@ -21,7 +21,7 @@ static int fire_btn_pressed_flag = 0;
 
 void init_switches(void) {
   // All switches here have pulldown resistors enabled.
-  // If the control panel is disconnected, the pins should keep a disabled state
+  // If the control pendant is disconnected, the pins should keep a disabled state
   for(int i = 0; i < NUM_SWITCHES; i++) {
     pinMode(switch_pins[i], INPUT_PULLDOWN);
   }

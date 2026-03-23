@@ -24,7 +24,7 @@ void init_thwacker(void) {
 
 void tick_thwacker(void) {
   // Make sure thwacker always turns off after some time
-  if(safety_is_on() || (THWACKER_IS_ON && millis() - thwacker_timeout_timer >= THWACKER_TIMEOUT_MS)) {
+  if(thwacker_is_on() && (safety_is_on() || millis() - thwacker_timeout_timer >= THWACKER_TIMEOUT_MS)) {
     turn_thwacker_off();
   }
 }
@@ -32,13 +32,13 @@ void tick_thwacker(void) {
 void fire_thwacker(void) {
   if(safety_is_on() || switch_is_active(NoThwackerSwitch)) { return; }
 
-  thwacker_timeout_timer = millis();
-  THWACKER_ON; // Thwacker is normally turned off in tick_coilgun()
+  if(!thwacker_is_on()) { thwacker_timeout_timer = millis(); } // Reset thwacker on-time timer
+  THWACKER_ON;
 }
 
 void turn_thwacker_off(void) {
+  if(thwacker_is_on()) { last_turned_off_timestamp = millis(); } // Reset thwacker off-time timer
   THWACKER_OFF;
-  last_turned_off_timestamp = millis();
 }
 
 uint32_t thwacker_off_time(void) {

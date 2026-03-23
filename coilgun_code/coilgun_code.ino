@@ -2,16 +2,11 @@
 // Teensy 3.2, 72MHz, USB Serial
 
 // TODO:
-// Make it an error for a shot not to complete, if the thwacker was used
-// - When firing enabled, last opto must be triggered before shot timeout
-// - Exception is if "disable thwacker" is enabled
-// - What to do if "ignore loaded" is enabled and a blank shot is fired? Error I guess
 // Why getting random "multiple optos triggered" errors?
 
 #include "coilgun.h"
 #include "loader.h"
 #include "switches.h"
-#include "thwacker.h"
 
 
 // When firing multiple shots automatically, how long to wait for the coilgun and loader to be ready before abandoning
@@ -22,7 +17,6 @@
 
 static void s_tick_firing(void);
 static int  s_ready_to_fire(void);
-static void s_fire_coilgun(void);
 
 
 void setup() {
@@ -33,30 +27,35 @@ void setup() {
 
 void loop() {
   tick_switches();
-  tick_loader();
-  s_tick_firing();
-  tick_thwacker();
+  tick_loader(); // Ticks thwacker as well
   tick_coilgun();
+  s_tick_firing();
 }
 
 
-typedef enum {
-  WaitForButtonPress,
-  WaitForReadiness,
-  FireCoilGun,
-} FiringStateEnum;
-
 static void s_tick_firing(void) {
+  typedef enum {
+    WaitForButtonPress,
+    WaitForReadiness,
+    FireCoilGun,
+  } FiringStateEnum;
+
   static FiringStateEnum state = WaitForButtonPress;
   static int num_shots = 0;
   static uint32_t multi_shot_timeout_timer = 0;
 
+  /*======================SAFETY======================*/
+
   if(safety_is_on()) {
-    fire_button_pressed(); // Call this to make sure button-press events are cleared
+    fire_button_pressed(); // Must call this to make sure button-press events are cleared, else could press fire button, turn safety off, and it would fire
     state = WaitForButtonPress;
 
     return;
   }
+
+  /*==================================================*/
+
+  // Only even reach this point when the safety is off
 
   // If we're waiting too long for the coilgun or loader to be ready for the next shot, reset the state machine
   if(millis() - multi_shot_timeout_timer >= MULTI_SHOT_TIMEOUT_MS) {
@@ -80,15 +79,15 @@ static void s_tick_firing(void) {
   }
 
   else if(state == FireCoilGun) {
-    s_fire_coilgun();
+    fire_loader();
     multi_shot_timeout_timer = millis(); // Reset on each shot
 
     num_shots--;
-    if(num_shots <= 0) {
-      state = WaitForButtonPress;
+    if(num_shots > 0) {
+      state = WaitForReadiness;
     }
     else {
-      state = WaitForReadiness;
+      state = WaitForButtonPress;
     }
   }
 }
@@ -96,9 +95,4 @@ static void s_tick_firing(void) {
 static int s_ready_to_fire(void) {
   if(loader_is_ready() && coilgun_is_idle()) { return 1; }
   return 0;
-}
-
-static void s_fire_coilgun(void) {
-  enable_coilgun_firing();
-  fire_loader();
 }

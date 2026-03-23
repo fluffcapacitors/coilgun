@@ -7,13 +7,14 @@
 
 #define NUM_SWITCHES 8
 
+
 // Important!
 // The enums must match the order of switch_pins[] in switches.cpp
 typedef enum {
-  SafetySwitch       = 0, // Can only fire when enabled
-  FireButton         = 1, // Normal fire with thwacker
+  SafetySwitch       = 0,
+  FireButton         = 1,
   NoThwackerSwitch   = 2, // When fire button pressed, don't actually trigger the thwacker
-  IgnoreLoadedSwitch = 3, // Ignore whether loader indicates a projectile is present
+  IgnoreLoadedSwitch = 3, // Try to fire even if the loader indicates there's no projectile
   ThreeShotSwitch    = 4, // Do a three-round burst when the fire button is pressed
   DisableCoil0Switch = 5, // Disable the first coil
   DisableCoil1Switch = 6, // Disable the second coil
