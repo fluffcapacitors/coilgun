@@ -33,6 +33,7 @@ static const int coil_pins[NUM_OPTOS_COILS] = {COIL_0_PIN, COIL_1_PIN, COIL_2_PI
 static int enable_firing = 0;
 static LoadingTypeEnum this_shot_loading_type = AutoLoading;
 static uint8_t first_opto_triggered_flag = 0; // Automatically set and reset in tick_coilgun()
+static uint8_t coilgun_fired_flag = 0;
 
 
 static int s_opto_triggered(uint8_t);
@@ -153,6 +154,7 @@ void tick_coilgun(void) {
         turn_coils_off();
         enable_firing = 0; // Finished the shot, disallow firing again
         first_opto_triggered_flag = 0;
+        coilgun_fired_flag = 1;
         state = ResetCoilgun;
       }
       // More coils to fire
@@ -185,10 +187,6 @@ void allow_coilgun_firing(LoadingTypeEnum loading_type) {
   enable_firing = 1;
 }
 
-int first_opto_was_triggered(void) {
-  return first_opto_triggered_flag;
-}
-
 void turn_coils_off(void) {
   for(int i = 0; i < NUM_OPTOS_COILS; i++) {
     digitalWriteFast(coil_pins[i], LOW);
@@ -207,6 +205,17 @@ int num_optos_triggered(void) {
     if(s_opto_triggered(i)) { tmp++; }
   }
 
+  return tmp;
+}
+
+int first_opto_was_triggered(void) {
+  return first_opto_triggered_flag;
+}
+
+int coilgun_successfully_fired(void) {
+  int tmp = coilgun_fired_flag;
+  coilgun_fired_flag = 0;
+  
   return tmp;
 }
 

@@ -7,12 +7,12 @@
 static const int switch_pins[NUM_SWITCHES] = {
   SAFETY_SW_PIN,
   FIRE_BTN_PIN,
-  NO_THWACKER_SW_PIN,
-  IGNORE_LOADED_SW_PIN,
-  THREE_SHOT_SW_PIN,
   DISABLE_COIL_0_SW_PIN,
   DISABLE_COIL_1_SW_PIN,
-  DISABLE_COIL_2_SW_PIN
+  DISABLE_COIL_2_SW_PIN,
+  NO_THWACKER_SW_PIN,
+  IGNORE_LOADED_SW_PIN,
+  THREE_SHOT_SW_PIN
 };
 
 static int switch_states[NUM_SWITCHES] = {0};
@@ -25,6 +25,15 @@ void init_switches(void) {
   for(int i = 0; i < NUM_SWITCHES; i++) {
     pinMode(switch_pins[i], INPUT_PULLDOWN);
   }
+
+  // Make sure all switch states are valid on startup
+  uint32_t timer = millis();
+  while(millis() - timer < 50) {
+    tick_switches();
+  }
+
+  // If fire button was held during reset, make sure we clear that flag
+  fire_btn_pressed_flag = 0;
 }
 
 void tick_switches(void) {

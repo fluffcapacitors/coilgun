@@ -13,12 +13,12 @@
 typedef enum {
   SafetySwitch       = 0,
   FireButton         = 1,
-  NoThwackerSwitch   = 2, // When fire button pressed, don't actually trigger the thwacker
-  IgnoreLoadedSwitch = 3, // Try to fire even if the loader indicates there's no projectile
-  ThreeShotSwitch    = 4, // Do a three-round burst when the fire button is pressed
-  DisableCoil0Switch = 5, // Disable the first coil
-  DisableCoil1Switch = 6, // Disable the second coil
-  DisableCoil2Switch = 7  // Disable the third coil
+  DisableCoil0Switch = 2, // Disable the first coil
+  DisableCoil1Switch = 3, // Disable the second coil
+  DisableCoil2Switch = 4, // Disable the third coil
+  NoThwackerSwitch   = 5, // When fire button pressed, don't actually trigger the thwacker
+  IgnoreLoadedSwitch = 6, // Try to fire even if the loader indicates there's no projectile
+  ThreeShotSwitch    = 7  // Do a three-round burst when the fire button is pressed
 } SwitchesEnum;
 
 

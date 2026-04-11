@@ -19,12 +19,13 @@ void tick_coilgun(void);
 
 int  coilgun_is_idle(void);
 void allow_coilgun_firing(LoadingTypeEnum);
-int  first_opto_was_triggered(void);
 
 void turn_coils_off(void);
 int  coil_is_on(uint8_t);
 
 int num_optos_triggered(void);
+int first_opto_was_triggered(void);
+int coilgun_successfully_fired(void);
 
 
 #endif

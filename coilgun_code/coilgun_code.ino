@@ -4,6 +4,7 @@
 // TODO:
 // Why getting random "multiple optos triggered" errors?
 
+#include "cg_eeprom.h"
 #include "coilgun.h"
 #include "loader.h"
 #include "switches.h"
@@ -23,6 +24,18 @@ void setup() {
   init_switches();
   init_loader(); // Inits thwacker as well
   init_coilgun(); // Inits safety timer as well
+
+  // Magic incantation to reset the shot odometer
+  if( \
+    switch_is_active(DisableCoil0Switch) == 1 && \
+    switch_is_active(DisableCoil1Switch) == 0 && \
+    switch_is_active(DisableCoil2Switch) == 1 && \
+    switch_is_active(NoThwackerSwitch  ) == 0 && \
+    switch_is_active(IgnoreLoadedSwitch) == 1 && \
+    switch_is_active(ThreeShotSwitch   ) == 0 && \
+    switch_is_active(FireButton        ) == 1 ) {
+      reset_shot_odometer();
+    }
 }
 
 void loop() {
@@ -30,6 +43,14 @@ void loop() {
   tick_loader(); // Ticks thwacker as well
   tick_coilgun();
   s_tick_firing();
+
+  // Update EEPROM (and eventually OLED) directly after each coilgun shot
+  // EEPROM write (and OLED) is blocking for a few ms, so we definitely don't want to do it while a shot is ongoing
+  // Plus, if the safety interrupt errors out, then we'll never return to what we were doing before, possibly leaving a partial EEPROM write
+  // This is probably the least likely moment for the safety errors to trigger
+  if(coilgun_successfully_fired()) {
+    increment_total_shots();
+  }
 }
 
 
