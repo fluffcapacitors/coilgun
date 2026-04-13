@@ -7,6 +7,7 @@
 #include "cg_eeprom.h"
 #include "coilgun.h"
 #include "loader.h"
+#include "oled.h"
 #include "switches.h"
 
 
@@ -22,6 +23,7 @@ static int  s_ready_to_fire(void);
 
 void setup() {
   init_switches();
+  init_oled();
   init_loader(); // Inits thwacker as well
   init_coilgun(); // Inits safety timer as well
 
@@ -50,6 +52,7 @@ void loop() {
   // This is probably the least likely moment for the safety errors to trigger
   if(coilgun_successfully_fired()) {
     increment_total_shots();
+    refresh_oled();
   }
 }
 

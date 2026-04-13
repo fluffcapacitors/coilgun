@@ -32,5 +32,9 @@
 #define IGNORE_LOADED_SW_PIN 16
 #define THREE_SHOT_SW_PIN 17
 
+#define OLED_SDA_PIN 18
+#define OLED_SCL_PIN 19
+#define OLED_RST_PIN 20 // Could potentially free this up if needed, by connecting OLED reset to Teensy reset
+
 
 #endif
