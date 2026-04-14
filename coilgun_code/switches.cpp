@@ -3,6 +3,12 @@
 #include "switches.h"
 
 
+// The "fire button pressed" flag is "sticky", meaning the flag stays set until we read it with fire_button_pressed()
+// Expire this flag after some time to make sure there's no situation where we can press the button, wait a while, 
+// then finally read the flag and fire the coilgun (like, a second later). This could be dangerous because it'd be unexpected
+#define FIRE_BTN_FLAG_TIMEOUT_MS 100
+
+
 // Must match the enum in switches.h
 static const int switch_pins[NUM_SWITCHES] = {
   SAFETY_SW_PIN,
@@ -17,6 +23,7 @@ static const int switch_pins[NUM_SWITCHES] = {
 
 static int switch_states[NUM_SWITCHES] = {0};
 static int fire_btn_pressed_flag = 0;
+static uint32_t fire_btn_pressed_timestamp = 0;
 
 
 void init_switches(void) {
@@ -58,6 +65,7 @@ void tick_switches(void) {
     // Check if fire button was pressed (pin had a rising edge)
     if(prev_fire_btn_state == 0 && switch_is_active(FireButton)) {
       fire_btn_pressed_flag = 1;
+      fire_btn_pressed_timestamp = millis();
     }
     prev_fire_btn_state = switch_is_active(FireButton);
   }
@@ -77,5 +85,8 @@ int fire_button_pressed(void) {
   uint8_t tmp = fire_btn_pressed_flag;
   fire_btn_pressed_flag = 0;
 
+  // Always report the button unpressed if the flag has expired
+  if(millis() - fire_btn_pressed_timestamp > FIRE_BTN_FLAG_TIMEOUT_MS) { return 0; }
+  // Otherwise report the actual state
   return tmp;
 }
