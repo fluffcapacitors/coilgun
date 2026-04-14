@@ -71,12 +71,12 @@ void init_oled(void) {
 void refresh_oled(void) {
   u8g2.clearBuffer();
 
-  s_draw_str(X_CENTER_COORD, 14, ALIGN_CENTER, MED_FONT,   "SHOTS TODAY");
-  s_draw_num(X_CENTER_COORD, 45, ALIGN_CENTER, LARGE_FONT, get_shot_odometer());
+  s_draw_str(X_CENTER_COORD, 12, ALIGN_CENTER, MED_FONT,   "SHOTS TODAY");
+  s_draw_num(X_CENTER_COORD, 44, ALIGN_CENTER, LARGE_FONT, get_shot_odometer());
 
   char str[20];
-  snprintf(str, 20, "TOTAL  %u", get_total_shots());
-  s_draw_str(X_CENTER_COORD, Y_BOTTOM_COORD, ALIGN_CENTER, SMALL_FONT, str);
+  snprintf(str, 20, "TOTAL  %u", (uint)get_total_shots());
+  s_draw_str(X_CENTER_COORD, Y_BOTTOM_COORD + 1, ALIGN_CENTER, SMALL_FONT, str);
 
   // s_draw_str(0,             Y_BOTTOM_COORD, ALIGN_LEFT,  SMALL_FONT, "TOTAL:");
   // s_draw_num(X_RIGHT_COORD, Y_BOTTOM_COORD, ALIGN_RIGHT, SMALL_FONT, get_total_shots());
@@ -115,8 +115,8 @@ void enter_oled_menu(void) {
     s_draw_oled_menu_item(41, switch_is_active(NoThwackerSwitch  ), "");
     s_draw_oled_menu_item(52, switch_is_active(IgnoreLoadedSwitch), "");
 
-    s_draw_str(0,             Y_BOTTOM_COORD, ALIGN_LEFT,  MENU_FONT, "RESET:Cancel");
-    s_draw_str(X_RIGHT_COORD, Y_BOTTOM_COORD, ALIGN_RIGHT, MENU_FONT, "FIRE:Save");
+    s_draw_str(0,             Y_BOTTOM_COORD + 1, ALIGN_LEFT,  MENU_FONT, "RESET:Cancel");
+    s_draw_str(X_RIGHT_COORD, Y_BOTTOM_COORD + 1, ALIGN_RIGHT, MENU_FONT, "FIRE:Save");
 
     u8g2.updateDisplay();
   }
