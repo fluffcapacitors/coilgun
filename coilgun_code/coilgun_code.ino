@@ -41,8 +41,8 @@ void loop() {
   tick_coilgun();
   s_tick_firing();
 
-  // Update EEPROM (and eventually OLED) directly after each coilgun shot
-  // EEPROM write (and OLED) is blocking for a few ms, so we definitely don't want to do it while a shot is ongoing
+  // Update EEPROM and OLED directly after each coilgun shot
+  // EEPROM and OLED write are blocking, so we definitely don't want to do it while a shot is ongoing
   // Plus, if the safety interrupt errors out, then we'll never return to what we were doing before, possibly leaving a partial EEPROM write
   // This is probably the least likely moment for the safety errors to trigger
   if(coilgun_successfully_fired()) {

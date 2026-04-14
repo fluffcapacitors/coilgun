@@ -5,6 +5,7 @@
 
 #define TOTAL_SHOTS_ADDR    0 // Lifetime shots fired
 #define SHOTS_ODOMETER_ADDR 4 // When reset, gets set equal to total shots. Then subtract the two to get shots since reset
+#define INFO_DISPLAY_ADDR   8 // What data to show on the display during normal operation
 
 
 static void     s_write_u32(uint16_t, uint32_t);
@@ -29,6 +30,20 @@ uint32_t get_shot_odometer(void) {
 
 void reset_shot_odometer(void) {
   s_write_u32(SHOTS_ODOMETER_ADDR, get_total_shots());
+}
+
+void set_info_display(InfoDisplayEnum info_type) {
+  EEPROM.update(INFO_DISPLAY_ADDR, (uint8_t)info_type);
+}
+
+InfoDisplayEnum get_info_display(void) {
+  uint8_t tmp = EEPROM.read(INFO_DISPLAY_ADDR);
+  switch(tmp) {
+    case 1: return ShotsTodayInfo;
+    case 2: return TotalShotsInfo;
+
+    default: return InvalidInfo;
+  }
 }
 
 
