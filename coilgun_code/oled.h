@@ -10,5 +10,7 @@ void init_oled(void);
 void refresh_oled(void);
 void oled_show_error(const char *);
 
+void enter_oled_menu(void);
+
 
 #endif

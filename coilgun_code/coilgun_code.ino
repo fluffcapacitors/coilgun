@@ -24,20 +24,15 @@ static int  s_ready_to_fire(void);
 void setup() {
   init_switches();
   init_oled();
+
+  // Before initializing anything else, check if we enter the menu (we might change settings that affect other stuff)
+  if(switch_is_active(FireButton)) {
+    enter_oled_menu(); // Stays here until it's done
+  }
+  refresh_oled();
+
   init_loader(); // Inits thwacker as well
   init_coilgun(); // Inits safety timer as well
-
-  // Magic incantation to reset the shot odometer
-  if( \
-    switch_is_active(DisableCoil0Switch) == 1 && \
-    switch_is_active(DisableCoil1Switch) == 0 && \
-    switch_is_active(DisableCoil2Switch) == 1 && \
-    switch_is_active(NoThwackerSwitch  ) == 0 && \
-    switch_is_active(IgnoreLoadedSwitch) == 1 && \
-    switch_is_active(ThreeShotSwitch   ) == 0 && \
-    switch_is_active(FireButton        ) == 1 ) {
-      reset_shot_odometer();
-    }
 }
 
 void loop() {
@@ -52,7 +47,7 @@ void loop() {
   // This is probably the least likely moment for the safety errors to trigger
   if(coilgun_successfully_fired()) {
     increment_total_shots();
-    refresh_oled();
+    refresh_oled(); // Takes ~40ms
   }
 }
 
