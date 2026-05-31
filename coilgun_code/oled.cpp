@@ -76,7 +76,7 @@ void refresh_oled(void) {
   // Even if the info display type is invalid, we want to show something
   if(info_type == ShotsTodayInfo || info_type == InvalidInfo) {
     s_draw_str(X_CENTER_COORD, 12, ALIGN_CENTER, MED_FONT,   "SHOTS TODAY");
-    s_draw_num(X_CENTER_COORD, 44, ALIGN_CENTER, LARGE_FONT, get_shot_odometer());
+    s_draw_num(X_CENTER_COORD, 44, ALIGN_CENTER, LARGE_FONT, get_shots_today());
 
     char str[20];
     snprintf(str, 20, "TOTAL  %u", (uint)get_total_shots());
@@ -90,7 +90,7 @@ void refresh_oled(void) {
     s_draw_num(X_CENTER_COORD, 44, ALIGN_CENTER, LARGE_FONT, get_total_shots());
 
     char str[20];
-    snprintf(str, 20, "TODAY  %u", (uint)get_shot_odometer());
+    snprintf(str, 20, "TODAY  %u", (uint)get_shots_today());
     s_draw_str(X_CENTER_COORD, Y_BOTTOM_COORD + 1, ALIGN_CENTER, SMALL_FONT, str);
   }
 
@@ -105,7 +105,9 @@ void refresh_oled(void) {
 
 void oled_show_error(const char *err_msg) {
   init_oled(); // Reset and clear screen
-  u8g2.setDisplayRotation(U8G2_R2); // Rotate screen 180 so we can read the error from behind the coilgun
+  if(error_display_inverted()) {
+    u8g2.setDisplayRotation(U8G2_R2); // Rotate screen 180 so we can read the error from behind the coilgun
+  }
 
   u8g2.setFont(MENU_FONT);
   s_draw_wrapped_str(0, u8g2.getMaxCharHeight(), MENU_FONT, err_msg);
@@ -130,11 +132,11 @@ void enter_oled_menu(void) {
 
     u8g2.clearBuffer();
 
-    s_draw_oled_menu_item( 8, switch_is_active(DisableCoil0Switch), "Reset shot odometer");
+    s_draw_oled_menu_item( 8, switch_is_active(DisableCoil0Switch), "Reset shots today");
     s_draw_oled_menu_item(19, switch_is_active(DisableCoil1Switch), "Display Shots Today");
     s_draw_oled_menu_item(30, switch_is_active(DisableCoil2Switch), "Display Total Shots");
     s_draw_oled_menu_item(41, switch_is_active(NoThwackerSwitch  ), "");
-    s_draw_oled_menu_item(52, switch_is_active(IgnoreLoadedSwitch), "");
+    s_draw_oled_menu_item(52, switch_is_active(IgnoreLoadedSwitch), "Show errors upright");
 
     s_draw_str(0,             Y_BOTTOM_COORD + 1, ALIGN_LEFT,  MENU_FONT, "RESET:Cancel");
     s_draw_str(X_RIGHT_COORD, Y_BOTTOM_COORD + 1, ALIGN_RIGHT, MENU_FONT, "FIRE:Save");
@@ -144,14 +146,16 @@ void enter_oled_menu(void) {
 
   // Only get here if we chose Save
 
-  if(switch_is_active(DisableCoil0Switch)) { reset_shot_odometer(); }
+  if(switch_is_active(DisableCoil0Switch)) { reset_shots_today(); }
 
   // Do "else if" here so you can only select one display type (highest one is chosen if you choose multiple)
        if(switch_is_active(DisableCoil1Switch)) { set_info_display(ShotsTodayInfo); }
   else if(switch_is_active(DisableCoil2Switch)) { set_info_display(TotalShotsInfo); }
 
   if(switch_is_active(NoThwackerSwitch  )) { }
-  if(switch_is_active(IgnoreLoadedSwitch)) { }
+
+  if(switch_is_active(IgnoreLoadedSwitch)) { set_inverted_error_display(0); }
+  else                                     { set_inverted_error_display(1); }
   
   u8g2.clearBuffer();
   u8g2.updateDisplay();
