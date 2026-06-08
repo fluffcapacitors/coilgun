@@ -22,16 +22,11 @@
 #define MAG_LOADER_ID_MV   595
 #define CHAIN_LOADER_ID_MV 1336
 
-#define MAG_MIN_THWACKER_OFF_TIME_MS 250 // Enforced minimum time between shots for the magazine loader (empirically derived)
+// Enforced minimum time between shots for the magazine loader (empirically derived)
+// Tested down to 150ms with high-speed footage. Looked good, would be an absolute minimum. 200ms is safer
+#define MAG_MIN_THWACKER_OFF_TIME_MS 200
 #define MAG_LOADED_PIN LOADER_IO_0_PIN // IR proximity sensor digital output
 #define MAG_LOADED_LEVEL LOW // Outputs low when something is detected
-
-
-typedef enum {
-  NoneLoader,
-  MagLoader,
-  ChainLoader
-} LoaderTypeEnum;
 
 
 static LoaderTypeEnum loader = NoneLoader;
@@ -81,6 +76,10 @@ void tick_loader(void) {
   else if(loader == ChainLoader) {
 
   }
+}
+
+LoaderTypeEnum get_attached_loader(void) {
+  return loader;
 }
 
 int loader_is_ready(void) {

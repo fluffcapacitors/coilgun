@@ -1,5 +1,6 @@
 
 #include "cg_eeprom.h"
+#include "loader.h"
 #include "oled.h"
 #include "pins.h"
 #include "switches.h"
@@ -72,29 +73,26 @@ void refresh_oled(void) {
   u8g2.clearBuffer();
 
   InfoDisplayEnum info_type = get_info_display();
+  char str[20];
 
   // Even if the info display type is invalid, we want to show something
   if(info_type == ShotsTodayInfo || info_type == InvalidInfo) {
     s_draw_str(X_CENTER_COORD, 12, ALIGN_CENTER, MED_FONT,   "SHOTS TODAY");
-    s_draw_num(X_CENTER_COORD, 44, ALIGN_CENTER, LARGE_FONT, get_shots_today());
+    s_draw_num(X_CENTER_COORD, 44, ALIGN_CENTER, LARGE_FONT, get_shot_counter(TripAShots));
 
-    char str[20];
-    snprintf(str, 20, "TOTAL  %u", (uint)get_total_shots());
+    snprintf(str, 20, "TOTAL  %u", (uint)get_shot_counter(TripBShots));
     s_draw_str(X_CENTER_COORD, Y_BOTTOM_COORD + 1, ALIGN_CENTER, SMALL_FONT, str);
-    // s_draw_str(0,             Y_BOTTOM_COORD, ALIGN_LEFT,  SMALL_FONT, "TOTAL:");
-    // s_draw_num(X_RIGHT_COORD, Y_BOTTOM_COORD, ALIGN_RIGHT, SMALL_FONT, get_total_shots());
   }
 
   if(info_type == TotalShotsInfo) {
     s_draw_str(X_CENTER_COORD, 12, ALIGN_CENTER, MED_FONT,   "TOTAL SHOTS");
-    s_draw_num(X_CENTER_COORD, 44, ALIGN_CENTER, LARGE_FONT, get_total_shots());
+    s_draw_num(X_CENTER_COORD, 44, ALIGN_CENTER, LARGE_FONT, get_shot_counter(TripBShots));
 
-    char str[20];
-    snprintf(str, 20, "TODAY  %u", (uint)get_shots_today());
+    snprintf(str, 20, "TODAY  %u", (uint)get_shot_counter(TripAShots));
     s_draw_str(X_CENTER_COORD, Y_BOTTOM_COORD + 1, ALIGN_CENTER, SMALL_FONT, str);
   }
 
-  // Set the upper-left pixel to show something's wrong
+  // If invalid info type, set the upper-left pixel to show something's wrong
   if(info_type == InvalidInfo) {
     u8g2.setDrawColor(1);
     u8g2.drawPixel(0, 0);
@@ -114,6 +112,28 @@ void oled_show_error(const char *err_msg) {
   u8g2.updateDisplay();
 }
 
+void oled_show_startup_screen(void) {
+  u8g2.clearBuffer();
+
+  s_draw_str(0, 12, ALIGN_LEFT, SMALL_FONT, "Lifetime shots:");
+  s_draw_num(0, 28, ALIGN_LEFT, SMALL_FONT, get_shot_counter(LifetimeShots));
+
+  const char *loader_name = "None";
+  switch(get_attached_loader()) {
+    case NoneLoader:                            break;
+    case MagLoader:   loader_name = "Magazine"; break;
+    case ChainLoader: loader_name = "Chain";    break;
+  }
+  s_draw_str(0, 44, ALIGN_LEFT, SMALL_FONT, "Detected loader:");
+  s_draw_str(0, 60, ALIGN_LEFT, SMALL_FONT, loader_name);
+
+  u8g2.updateDisplay();
+
+  delay(2000);
+  u8g2.clearBuffer();
+  u8g2.updateDisplay();
+}
+
 void enter_oled_menu(void) {
   static uint32_t timer = 0;
 
@@ -124,7 +144,7 @@ void enter_oled_menu(void) {
     // Other way to exit is simply reset the MCU (discard selections)
 
     // Skip the rest of the code until it's time to update the display
-    // We can't update the screen too often or else the switch updates get unresponsive because this takes so long
+    // We can't update the screen too often or else the switch debouncing gets unresponsive because this takes so long
     if(millis() - timer < 100) { continue; } // 10 fps
     timer = millis();
 
@@ -133,9 +153,9 @@ void enter_oled_menu(void) {
     u8g2.clearBuffer();
 
     s_draw_oled_menu_item( 8, switch_is_active(DisableCoil0Switch), "Reset shots today");
-    s_draw_oled_menu_item(19, switch_is_active(DisableCoil1Switch), "Display Shots Today");
-    s_draw_oled_menu_item(30, switch_is_active(DisableCoil2Switch), "Display Total Shots");
-    s_draw_oled_menu_item(41, switch_is_active(NoThwackerSwitch  ), "");
+    s_draw_oled_menu_item(19, switch_is_active(DisableCoil1Switch), "Reset total shots");
+    s_draw_oled_menu_item(30, switch_is_active(DisableCoil2Switch), "");
+    s_draw_oled_menu_item(41, switch_is_active(NoThwackerSwitch  ), "Swap shot displays");
     s_draw_oled_menu_item(52, switch_is_active(IgnoreLoadedSwitch), "Show errors upright");
 
     s_draw_str(0,             Y_BOTTOM_COORD + 1, ALIGN_LEFT,  MENU_FONT, "RESET:Cancel");
@@ -146,13 +166,13 @@ void enter_oled_menu(void) {
 
   // Only get here if we chose Save
 
-  if(switch_is_active(DisableCoil0Switch)) { reset_shots_today(); }
+  if(switch_is_active(DisableCoil0Switch)) { reset_shot_counter(TripAShots); }
+  if(switch_is_active(DisableCoil1Switch)) { reset_shot_counter(TripBShots); }
+  
+  if(switch_is_active(DisableCoil2Switch)) { }
 
-  // Do "else if" here so you can only select one display type (highest one is chosen if you choose multiple)
-       if(switch_is_active(DisableCoil1Switch)) { set_info_display(ShotsTodayInfo); }
-  else if(switch_is_active(DisableCoil2Switch)) { set_info_display(TotalShotsInfo); }
-
-  if(switch_is_active(NoThwackerSwitch  )) { }
+  if(switch_is_active(NoThwackerSwitch  )) { set_info_display(TotalShotsInfo); }
+  else                                     { set_info_display(ShotsTodayInfo); }
 
   if(switch_is_active(IgnoreLoadedSwitch)) { set_inverted_error_display(0); }
   else                                     { set_inverted_error_display(1); }

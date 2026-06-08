@@ -24,15 +24,17 @@ static int  s_ready_to_fire(void);
 void setup() {
   init_switches();
   init_oled();
+  init_loader(); // Inits thwacker as well
+  init_coilgun(); // Inits safety timer as well
 
-  // Before initializing anything else, check if we enter the menu (we might change settings that affect other stuff)
+  // set_lifetime_shots(400);
+
   if(switch_is_active(FireButton)) {
     enter_oled_menu(); // Stays here until it's done
   }
-  refresh_oled();
 
-  init_loader(); // Inits thwacker as well
-  init_coilgun(); // Inits safety timer as well
+  oled_show_startup_screen();
+  refresh_oled();
 }
 
 void loop() {
@@ -46,7 +48,7 @@ void loop() {
   // Plus, if the safety interrupt errors out, then we'll never return to what we were doing before, possibly leaving a partial EEPROM write
   // This is probably the least likely moment for the safety errors to trigger
   if(coilgun_successfully_fired()) {
-    increment_total_shots();
+    increment_shots_fired();
     refresh_oled(); // Takes ~40ms
   }
 }
