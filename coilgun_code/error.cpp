@@ -1,6 +1,7 @@
 
 #include "coilgun.h"
 #include "error.h"
+#include "loader.h"
 #include "oled.h"
 #include "pins.h"
 #include "thwacker.h"
@@ -9,6 +10,7 @@
 void error(const char *err_msg) {
   turn_coils_off();
   turn_thwacker_off();
+  turn_loader_off();
 
   pinMode(ORG_LED_PIN, OUTPUT);
   digitalWriteFast(ORG_LED_PIN, HIGH);
