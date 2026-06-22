@@ -1,9 +1,6 @@
 
 // Teensy 3.2, 72MHz, USB Serial
 
-// TODO:
-// Why getting random "multiple optos triggered" errors?
-
 #include "cg_eeprom.h"
 #include "coilgun.h"
 #include "loader.h"
@@ -13,8 +10,8 @@
 
 // When firing multiple shots automatically, how long to wait for the coilgun and loader to be ready before abandoning
 // future shots and resetting the state machine.
-// Must be long enough for slow loaders to load the next shot, but should be kept short to reset when ammo has run out
-#define MULTI_SHOT_TIMEOUT_MS 1000
+// Must be long enough for slow loaders to load the next shot, but should be kept short to reset quickly if ammo has run out
+#define MULTI_SHOT_TIMEOUT_MS 2500
 
 
 static void s_tick_firing(void);
@@ -43,7 +40,7 @@ void loop() {
   tick_coilgun();
   s_tick_firing();
 
-  // Update EEPROM and OLED directly after each coilgun shot
+  // Update EEPROM and OLED immediately (and only) after each coilgun shot
   // EEPROM and OLED write are blocking, so we definitely don't want to do it while a shot is ongoing
   // Plus, if the safety interrupt errors out, then we'll never return to what we were doing before, possibly leaving a partial EEPROM write
   // This is probably the least likely moment for the safety errors to trigger
