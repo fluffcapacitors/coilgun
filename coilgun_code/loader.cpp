@@ -11,6 +11,7 @@
 // Voltages with pulldown (roughly equally-spaced voltages, for up to 4 different loaders (as well as no loader)):
 // 2.2k = 595mV
 // 6.8k = 1336mV
+// 7.5k = 1414mV
 // 15k  = 1980mV
 // 39k  = 2627mV
 
@@ -20,7 +21,7 @@
 
 #define NONE_LOADER_ID_MV  3200
 #define MAG_LOADER_ID_MV   595
-#define CHAIN_LOADER_ID_MV 1336
+#define CHAIN_LOADER_ID_MV 1414 // Using 7.5k pulldown resistor since 6.8k wasn't available
 
 // Magaine loader parameters
 #define MAG_LOADED_PIN   LOADER_IO_0_PIN // IR proximity sensor digital output
@@ -33,33 +34,22 @@
 // Chain loader parameters
 // Chain drive motor is being run off 20V
 // https://www.pjrc.com/teensy/td_pulse.html
-#define CHAIN_LOADED_PIN      LOADER_IO_0_PIN
-#define CHAIN_LOADED_LEVEL    HIGH // Outputs high when the endstop is pressed
-#define CHAIN_IS_LOADED       (digitalReadFast(CHAIN_LOADED_PIN) == CHAIN_LOADED_LEVEL)
-#define CHAIN_DRIVE_PIN       LOADER_IO_1_PIN
-#define CHAIN_PWM_FREQ        8789.062F // Supposedly the precise frequency needed to get a perfect 12 bits resolution (Teensy 3.2, 72MHz)
-#define CHAIN_PWM_BITS        12
-#define CHAIN_PWM_MAX_VAL     4095L // L instead of UL to prevent compilation warnings about comparing signed and unsigned integers (target_chain_speed is signed)
+#define CHAIN_LOADED_PIN   LOADER_IO_0_PIN
+#define CHAIN_LOADED_LEVEL HIGH // Outputs high when the endstop is pressed
+#define CHAIN_IS_LOADED    (digitalReadFast(CHAIN_LOADED_PIN) == CHAIN_LOADED_LEVEL)
+#define CHAIN_DRIVE_PIN    LOADER_IO_1_PIN
+#define CHAIN_PWM_FREQ     8789.062F // Supposedly the precise frequency needed to get a perfect 12 bits resolution (Teensy 3.2, 72MHz)
+#define CHAIN_PWM_BITS     12
+#define CHAIN_PWM_MAX_VAL  4095L // L instead of UL to prevent compilation warnings about comparing signed and unsigned integers (target_chain_speed is signed)
 // =============== Tweak these values ===============
-#define CHAIN_MIN_DC_PERCENT  20 // Minimum duty cycle, should be at least like 10 (else loading the chain will be extremely slow)
-#define CHAIN_MAX_DC_PERCENT  75 // Maximum duty cycle
-// Amount of time the loader should advance per shot, before hitting the endstop
-// Ideally this value should advance the chain ~90% of the way, then the sustain takes it the rest of the way
-#define CHAIN_ADVANCE_TIME_MS 1000UL
-#define CHAIN_SUSTAIN_TIME_MS 1000 // After advancing, keep going at minimum speed for this long to ensure we hit the endstop (or stop if we don't)
-#define CHAIN_SETTLE_TIME_MS  100 // After stopping the chain, wait for things to settle before thwacking again
-// What percent of the advance time to spend accelerating/decelerating
-// So 30% here means take 15% of CHAIN_ADVANCE_TIME_MS to accelerate, and 15% to decelerate
-// Choose this value (along with min/max speed) to give smooth accel, then tune CHAIN_ADVANCE_TIME_MS appropriately
-#define CHAIN_ACCEL_PERCENT   30
+#define CHAIN_SLOW_SPEED_PERCENT 45 // Duty cycle, speed for manual movement
+#define CHAIN_FAST_SPEED_PERCENT 60 // Duty cycle, speed for normal advance
+#define CHAIN_ADVANCE_TIME_MS    1000UL // Max amount of time the chain will move (at high speed) to hit the switch
+#define CHAIN_OVERDRIVE_TIME_MS  0 // After the switch is hit, keep going at low speed a bit to make sure it's in the right spot
+#define CHAIN_SETTLE_TIME_MS     100 // After stopping the chain, wait for things to settle before thwacking again
 // ==================================================
-#define CHAIN_MIN_DC_VAL      ((CHAIN_PWM_MAX_VAL * CHAIN_MIN_DC_PERCENT) / 100) // Duty cycle timer value for min speed
-#define CHAIN_MAX_DC_VAL      ((CHAIN_PWM_MAX_VAL * CHAIN_MAX_DC_PERCENT) / 100) // Duty cycle timer value for max speed
-#define CHAIN_ACCEL_TIME_MS   ((CHAIN_ADVANCE_TIME_MS * CHAIN_ACCEL_PERCENT) / 200) // How long the accel or decel takes. The 200 is /100 /2, simplified
-#define CHAIN_ACCEL_STEP_MS   5 // How frequently to adjust duty cycle during acceleration
-#define CHAIN_ACCEL_NUM_STEPS (CHAIN_ACCEL_TIME_MS / CHAIN_ACCEL_STEP_MS) // How many steps we'll take when going from min speed to max speed
-#define CHAIN_ACCEL_STEP_VAL  ((CHAIN_MAX_DC_VAL - CHAIN_MIN_DC_VAL) / CHAIN_ACCEL_NUM_STEPS) // How much to change PWM on each step
-#define CHAIN_CRUISE_TIME_MS  (CHAIN_ADVANCE_TIME_MS - (CHAIN_ACCEL_TIME_MS * 2)) // Total advance time minus the accelerations
+#define CHAIN_SLOW_DC_VAL ((CHAIN_PWM_MAX_VAL * CHAIN_SLOW_SPEED_PERCENT) / 100) // Duty cycle timer value for low speed
+#define CHAIN_FAST_DC_VAL ((CHAIN_PWM_MAX_VAL * CHAIN_FAST_SPEED_PERCENT) / 100) // Duty cycle timer value for high speed
 // Time to wait after turning off the thwacker before starting to move the chain again
 // Unlike the mag loader, we're not waiting for dowels to drop via gravity, we just need to guarantee the thwacker is retracted before moving the chain
 // We also want to make sure the shot completed and OLED updated, and the endstop untriggers
@@ -67,29 +57,28 @@
 
 
 typedef enum {
-  SlowChainAdvance,
+  ManualChainAdvance,
   FastChainAdvance
-} ChainAdvanceSpeedEnum;
+} ChainAdvanceTypeEnum;
 
 typedef enum {
   ChainIsReady,
   InitChainAdvance,
   WaitForThwacker,
-  AccelerateChain,
-  WaitCruiseTime,
-  DecelerateChain,
-  WaitSustainTime,
-  WaitSettleTime
+  WaitAdvanceTime,
+  WaitOverdriveTime,
+  WaitSettleTime,
+  ManualMove
 } ChainAdvanceStateEnum;
 
 
 static LoaderTypeEnum loader = NoneLoader;
 
-static ChainAdvanceSpeedEnum chain_advance_speed = SlowChainAdvance;
+static ChainAdvanceTypeEnum chain_advance_type = FastChainAdvance;
 static ChainAdvanceStateEnum chain_advance_state = ChainIsReady;
 static uint32_t current_chain_speed = 0;
 
-static void s_trigger_chain_advance(ChainAdvanceSpeedEnum);
+static void s_trigger_chain_advance(ChainAdvanceTypeEnum);
 static void s_set_chain_speed(uint32_t);
 static void s_tick_chain_advance(void);
 
@@ -197,18 +186,18 @@ void fire_loader(void) {
   }
 
   else if(loader == ChainLoader) {
-    if(CHAIN_IS_LOADED) {
-      // Thwacker is enabled, fire!
-      if(switch_is_active(NoThwackerSwitch) == 0) {
+    // "Ignore Loaded" switch is used to manually force-advance the motor, regardless if the loaded switch is hit
+    // Stays active as long as the fire button is held down
+    if(switch_is_active(IgnoreLoadedSwitch)) {
+      s_trigger_chain_advance(ManualChainAdvance);
+    }
+    // Normal mode
+    else {
+      if((switch_is_active(NoThwackerSwitch) == 0) && CHAIN_IS_LOADED) {
         allow_coilgun_firing(AutoLoading);
         fire_thwacker();
-        s_trigger_chain_advance(FastChainAdvance);
       }
-      // Else thwacker is disabled and chain is fully advanced, do nothing
-    }
-    // In any case, if the endstop isn't triggered, slowly advance the chain and don't fire the thwacker
-    else {
-      s_trigger_chain_advance(SlowChainAdvance);
+      s_trigger_chain_advance(FastChainAdvance);
     }
   }
 }
@@ -232,8 +221,8 @@ LoaderTypeEnum get_attached_loader(void) {
 }
 
 
-static void s_trigger_chain_advance(ChainAdvanceSpeedEnum speed) {
-  chain_advance_speed = speed;
+static void s_trigger_chain_advance(ChainAdvanceTypeEnum advance_type) {
+  chain_advance_type = advance_type;
   chain_advance_state = InitChainAdvance;
   s_tick_chain_advance();
 }
@@ -245,101 +234,70 @@ static void s_set_chain_speed(uint32_t speed) {
 
 static void s_tick_chain_advance(void) {
   static uint32_t timer = 0;
-  static uint32_t sustain_time = 0;
-  static int32_t target_chain_speed = 0;
 
   if(chain_advance_state == ChainIsReady) {
     s_set_chain_speed(0);
     return;
     // Endstop may or may not be triggered
   }
-  // If the endstop triggers (while the chain is moving), we stop the motor and wait for the settling time (which then goes to the ready state)
-  else if(CHAIN_IS_LOADED && (current_chain_speed != 0)) {
-    s_set_chain_speed(0);
-    timer = millis();
-    chain_advance_state = WaitSettleTime;
-    return;
-  }
 
   if(chain_advance_state == InitChainAdvance) {
-    target_chain_speed = CHAIN_MIN_DC_VAL;
-    sustain_time = CHAIN_SUSTAIN_TIME_MS;
     chain_advance_state = WaitForThwacker;
   }
 
   else if(chain_advance_state == WaitForThwacker) {
     // Once thwacker has been off for long enough, we can start the motor
     if(thwacker_off_time() >= CHAIN_MIN_THWACKER_OFF_TIME_MS) {
-      if(chain_advance_speed == FastChainAdvance) {
-        chain_advance_state = AccelerateChain;
+      // Force move motor
+      if(chain_advance_type == ManualChainAdvance) {
+        s_set_chain_speed(CHAIN_SLOW_DC_VAL);
+        chain_advance_state = ManualMove;
       }
+      // Otherwise we need to be checking the loaded switch
       else {
-        // When going slow, we still want to move the chain about the same amount
-        // Move the chain for longer, relative to the speed difference between the high speed and low speed
-        sustain_time = (CHAIN_ADVANCE_TIME_MS * CHAIN_MAX_DC_PERCENT) / (CHAIN_MIN_DC_PERCENT + 1); // Simple don't divide by 0
-        if(sustain_time > 5000) { sustain_time = 5000; } // But keep it reasonable
-        chain_advance_state = WaitSustainTime;
+        // This shouldn't happen unless there's a jam (switch shouldn't be pressed after firing the dowel)
+        if(CHAIN_IS_LOADED) {
+          chain_advance_state = ChainIsReady;
+        }
+        else {
+          s_set_chain_speed(CHAIN_FAST_DC_VAL);
+          timer = millis();
+          chain_advance_state = WaitAdvanceTime;
+        }
       }
+    }
+  }
 
+  else if(chain_advance_state == WaitAdvanceTime) {
+    // Switch was hit, move to waiting for the overdrive time
+    if(CHAIN_IS_LOADED) {
+      chain_advance_state = WaitOverdriveTime;
       timer = millis();
-      s_set_chain_speed(target_chain_speed);
     }
-  }
-
-  else if(chain_advance_state == AccelerateChain) {
-    if(millis() - timer >= CHAIN_ACCEL_STEP_MS) {
-      // Add the wait time rather than setting timer equal to millis()
-      // This keeps the overall acceleration time pretty constant, even if we miss a cycle
-      timer += CHAIN_ACCEL_STEP_MS;
-
-      target_chain_speed += CHAIN_ACCEL_STEP_VAL;
-      if(target_chain_speed >= CHAIN_MAX_DC_VAL) {
-        target_chain_speed = CHAIN_MAX_DC_VAL;
-
-        timer = millis();
-        chain_advance_state = WaitCruiseTime;
-      }
-      s_set_chain_speed(target_chain_speed);
-    }
-  }
-
-  else if(chain_advance_state == WaitCruiseTime) {
-    // Technically we should subtract one accel step time because when we go to decelerate, we wait a step time before changing the motor speed
-    // But eh. Step time should be small compared to the cruise time
-    if(millis() - timer >= CHAIN_CRUISE_TIME_MS) {
-      timer = millis();
-      chain_advance_state = DecelerateChain;
-    }
-  }
-
-  else if(chain_advance_state == DecelerateChain) {
-    if(millis() - timer >= CHAIN_ACCEL_STEP_MS) {
-      timer += CHAIN_ACCEL_STEP_MS;
-
-      target_chain_speed -= CHAIN_ACCEL_STEP_VAL;
-      if(target_chain_speed <= CHAIN_MIN_DC_VAL) {
-        target_chain_speed = CHAIN_MIN_DC_VAL;
-
-        timer = millis();
-        chain_advance_state = WaitSustainTime;
-      }
-      s_set_chain_speed(target_chain_speed);
-    }
-  }
-
-  else if(chain_advance_state == WaitSustainTime) {
-    // In the normal case, the endstop gets triggered sometime while we're waiting in this state
-    // That's handled near the top of this state machine, and it stops the motor and jumps to WaitSettleTime
-    // If we time out here, that indicates the endstop didn't trigger, so we just reset things anyway
-
-    if(millis() - timer >= sustain_time) {
+    // Moved the max amount of time without hitting the switch, turn off motor and reset
+    else if(millis() - timer >= CHAIN_ADVANCE_TIME_MS) {
       s_set_chain_speed(0);
       chain_advance_state = ChainIsReady;
     }
   }
 
+  else if(chain_advance_state == WaitOverdriveTime) {
+    if(millis() - timer >= CHAIN_OVERDRIVE_TIME_MS) {
+      s_set_chain_speed(0);
+      chain_advance_state = WaitSettleTime;
+    }
+  }
+
   else if(chain_advance_state == WaitSettleTime) {
     if(millis() - timer > CHAIN_SETTLE_TIME_MS) {
+      chain_advance_state = ChainIsReady;
+    }
+  }
+
+  else if(chain_advance_state == ManualMove) {
+    // Motor was turned on already, keep it going until the fire button is released
+    if(switch_is_active(FireButton) == 0) {
+      s_set_chain_speed(0);
       chain_advance_state = ChainIsReady;
     }
   }
