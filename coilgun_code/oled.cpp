@@ -155,7 +155,7 @@ void enter_oled_menu(void) {
     s_draw_oled_menu_item( 8, switch_is_active(DisableCoil0Switch), "Reset shots today");
     s_draw_oled_menu_item(19, switch_is_active(DisableCoil1Switch), "Reset total shots");
     s_draw_oled_menu_item(30, switch_is_active(DisableCoil2Switch), "");
-    s_draw_oled_menu_item(41, switch_is_active(NoThwackerSwitch  ), "Swap shot displays");
+    s_draw_oled_menu_item(41, switch_is_active(NoThwackerSwitch  ), "Display total on top");
     s_draw_oled_menu_item(52, switch_is_active(IgnoreLoadedSwitch), "Show errors upright");
 
     s_draw_str(0,             Y_BOTTOM_COORD + 1, ALIGN_LEFT,  MENU_FONT, "RESET:Cancel");
