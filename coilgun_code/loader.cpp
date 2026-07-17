@@ -42,9 +42,9 @@
 #define CHAIN_PWM_BITS     12
 #define CHAIN_PWM_MAX_VAL  4095L // L instead of UL to prevent compilation warnings about comparing signed and unsigned integers (target_chain_speed is signed)
 // =============== Tweak these values ===============
-#define CHAIN_SLOW_SPEED_PERCENT 45 // Duty cycle, speed for manual movement
-#define CHAIN_FAST_SPEED_PERCENT 60 // Duty cycle, speed for normal advance
-#define CHAIN_ADVANCE_TIME_MS    1000UL // Max amount of time the chain will move (at high speed) to hit the switch
+#define CHAIN_SLOW_SPEED_PERCENT 30 // Duty cycle, speed for manual movement
+#define CHAIN_FAST_SPEED_PERCENT 40 // Duty cycle, speed for normal advance
+#define CHAIN_ADVANCE_TIME_MS    1500UL // Max amount of time the chain will move (at high speed) to hit the switch
 #define CHAIN_OVERDRIVE_TIME_MS  0 // After the switch is hit, keep going at low speed a bit to make sure it's in the right spot
 #define CHAIN_SETTLE_TIME_MS     100 // After stopping the chain, wait for things to settle before thwacking again
 // ==================================================
